@@ -1,4 +1,4 @@
-package controller;
+package com.jobportal.controller;
 
 
 import com.jobportal.payload.AuthResponse;

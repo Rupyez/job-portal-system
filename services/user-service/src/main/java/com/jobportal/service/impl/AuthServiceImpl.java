@@ -41,11 +41,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Prevent users from assigning themselves privileged roles
-        if (req.getRole() == UserRole.ADMIN) {
-            throw new IllegalArgumentException(
-                    "Cannot self-register with the ADMIN role."
-            );
-        }
+//        if (req.getRole() == UserRole.ADMIN) {
+//            throw new IllegalArgumentException(
+//                    "Cannot self-register with the ADMIN role."
+//            );
+//        }
 
         User user = User.builder()
                 .firstName(req.getFirstName().trim())
