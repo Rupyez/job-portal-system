@@ -28,6 +28,7 @@ public final class UserMapper {
         dto.setUserStatus (user.getUserStatus());
         dto.setLastLogin(user.getLastLogin());
         dto.setCreatedAt(user.getCreatedAt());
+        dto.setEnabled(user.getEnabled());
 
         return dto;
     }

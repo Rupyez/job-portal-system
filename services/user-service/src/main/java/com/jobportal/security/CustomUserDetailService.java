@@ -20,18 +20,25 @@ public class CustomUserDetailService implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String username)
+    public UserDetails loadUserByUsername(String email)
             throws UsernameNotFoundException {
 
-        User user = userRepository.findByEmail(username)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException(
-                        "User not found with email: " + username
+                        "User not found with email: " + email
                 ));
 
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                user.getPassword(),
-                List.of(new SimpleGrantedAuthority(user.getRole().toString()))
-        );
+        String role = user.getRole().name();
+
+        //Spring security expects role-based authorities to use Role
+        String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getEmail())
+                .password(user.getPassword())
+                .authorities(List.of(
+                        new SimpleGrantedAuthority(authority)
+                ))
+                .build();
     }
 }

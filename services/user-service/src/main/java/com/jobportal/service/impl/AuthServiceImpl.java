@@ -7,15 +7,19 @@ import com.jobportal.payload.AuthResponse;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.SignupRequest;
 import com.jobportal.repository.UserRepository;
+import com.jobportal.security.JwtProvider;
 import com.jobportal.service.AuthService;
 import domain.UserRole;
 import dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -25,6 +29,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
 
     @Override
     @Transactional
@@ -60,22 +65,7 @@ public class AuthServiceImpl implements AuthService {
         try {
             User savedUser = userRepository.saveAndFlush(user);
 
-            UserResponse userResponse = new UserResponse();
-            userResponse.setId(savedUser.getId());
-            userResponse.setFirstName(savedUser.getFirstName());
-            userResponse.setLastName(savedUser.getLastName());
-
-            userResponse.setEmail(savedUser.getEmail());
-            userResponse.setPhoneNumber(savedUser.getPhoneNumber());
-            userResponse.setRole(savedUser.getRole());
-
-            AuthResponse response = new AuthResponse();
-            response.setTitle("Welcome " +savedUser.getFirstName());
-            response.setMessage("Signup successful.");
-            response.setJwt("jwt");
-            response.setUser(UserMapper.toDTO(savedUser));
-
-            return response;
+            return createAuthResponse(savedUser, "Welcome " + savedUser.getFirstName(), "Registration successful");
 
         } catch (DataIntegrityViolationException ex) {
             throw new EmailAlreadyExistsException(
@@ -85,12 +75,63 @@ public class AuthServiceImpl implements AuthService {
 
     }
 
+    private AuthResponse createAuthResponse(User user, String title, String message){
+        String role = user.getRole().name();
+
+        JwtProvider.IssuedToken accessToken = jwtProvider.generateAccessToken(
+                user.getEmail(),
+                user.getId().toString(),
+                List.of(role));
+
+        JwtProvider.IssuedToken refreshToken = jwtProvider.generateRefreshToken(
+                user.getEmail(),
+                user.getId().toString()
+        );
+
+        AuthResponse response = new AuthResponse();
+        response.setJwt(accessToken.value());
+        response.setRefreshToken(refreshToken.value());
+        response.setAccessTokenExpiresAt(accessToken.expiresAt());
+        response.setRefreshTokenExpiresAt(refreshToken.expiresAt());
+        response.setTitle(title);
+        response.setMessage(message);
+        response.setUser(UserMapper.toDTO(user));
+
+        return response;
+    }
+
     private String normalizeEmail(String email){
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     @Override
     public AuthResponse login(LoginRequest req) {
-        return null;
+        Objects.requireNonNull(req, "Login request must not be null.");
+
+        String email = normalizeEmail(req.getEmail());
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+
+        //Use the same Bcrypt encoder that was used during registration
+        if(!passwordEncoder.matches(req.getPassword(), user.getPassword())){
+            throw new BadCredentialsException("Invalid email or password");
+
+        }
+
+        if(!Boolean.TRUE.equals(user.getEnabled())){
+            throw new BadCredentialsException(
+                    "This account is not enabled."
+            );
+        }
+
+        user.setLastLogin(LocalDateTime.now());
+        User updatedUser = userRepository.saveAndFlush(user);
+
+        return createAuthResponse(
+                updatedUser,
+                "Welcome back " + updatedUser.getFirstName(),
+                "Login successful."
+        );
     }
 }
