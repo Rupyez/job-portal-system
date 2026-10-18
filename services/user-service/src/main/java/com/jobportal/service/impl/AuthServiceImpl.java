@@ -2,12 +2,15 @@ package com.jobportal.service.impl;
 
 import com.jobportal.exception.EmailAlreadyExistsException;
 import com.jobportal.mapper.UserMapper;
+import com.jobportal.modal.RefreshToken;
 import com.jobportal.modal.User;
 import com.jobportal.payload.AuthResponse;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.SignupRequest;
+import com.jobportal.repository.RefreshTokenRepository;
 import com.jobportal.repository.UserRepository;
 import com.jobportal.security.JwtProvider;
+import com.jobportal.security.TokenHashUtil;
 import com.jobportal.service.AuthService;
 import domain.UserRole;
 import dto.response.UserResponse;
@@ -18,10 +21,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Override
     @Transactional
@@ -77,17 +83,34 @@ public class AuthServiceImpl implements AuthService {
 
     private AuthResponse createAuthResponse(User user, String title, String message){
         String role = user.getRole().name();
+        String userId = user.getId().toString();
 
+        //generate a short-lived access token
         JwtProvider.IssuedToken accessToken = jwtProvider.generateAccessToken(
                 user.getEmail(),
                 user.getId().toString(),
                 List.of(role));
 
-        JwtProvider.IssuedToken refreshToken = jwtProvider.generateRefreshToken(
+        JwtProvider.IssuedToken issuedRefreshToken = jwtProvider.generateRefreshToken(
                 user.getEmail(),
                 user.getId().toString()
         );
 
+
+        //Generate a refresh token for obtaining new access token
+        JwtProvider.IssuedToken refreshToken = jwtProvider.generateRefreshToken(
+                user.getEmail(),
+                userId
+        );
+
+        //Store only the hash of the refresh token in the database.
+        RefreshToken refreshTokenEntity = new RefreshToken();
+        refreshTokenEntity.setUser(user);
+        refreshTokenEntity.setTokenHash(TokenHashUtil.sha256(issuedRefreshToken.value()));
+        refreshTokenEntity.setExpiresAt(refreshToken.expiresAt());
+
+
+        //Return the raw tokens to the client, not to the database;
         AuthResponse response = new AuthResponse();
         response.setJwt(accessToken.value());
         response.setRefreshToken(refreshToken.value());
@@ -105,6 +128,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponse login(LoginRequest req) {
         Objects.requireNonNull(req, "Login request must not be null.");
 
@@ -133,5 +157,107 @@ public class AuthServiceImpl implements AuthService {
                 "Welcome back " + updatedUser.getFirstName(),
                 "Login successful."
         );
+    }
+
+
+    @Override
+    public AuthResponse refresh(String refreshToken) {
+
+        // STEP 1: Validate the refresh token.
+        // This checks the JWT signature, expiration, issuer, and token type.
+        // A refresh token must not be an access token.
+
+        if(!jwtProvider.isTokenValid(refreshToken, JwtProvider.TokenType.REFRESH)){
+            throw new BadCredentialsException("Invalid Refresh Token");
+        }
+
+        //STEP 2: Hash the token received from the client
+        //We store only the hash in database, not the original token.
+        String tokenHash = TokenHashUtil.sha256(refreshToken);
+
+        //STEP 3: Find the matching token record in the database.
+        //If no record exists, the token was never stored or is not recognized.
+        RefreshToken storedToken = (refreshTokenRepository
+                .findByTokenHash(tokenHash)
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token")));
+
+
+        //STEP 4: Check whether the stored token is expired or revoked
+        if(storedToken.isRevoked() || storedToken.isExpired()){
+            throw new BadCredentialsException("Refresh token is expired or revoked.");
+        }
+
+
+        //STEP 5: Get the user associated with this refresh token.
+        User user = storedToken.getUser();
+
+        //STEp 6: Confirm the token belongs to the expected user.
+        //compare the user id and email inside the jwt with the database user.
+        if(!user.getId().toString().equals(
+                jwtProvider.extractUserId(refreshToken)) || !user.getEmail().equals(jwtProvider.extractSubject(refreshToken))){
+            throw new BadCredentialsException("Invalid refresh token");
+        }
+
+
+
+        //STEP 7: Do not issue tokens to a disabled account
+        if(!Boolean.TRUE.equals(user.getEnabled())){
+            throw new BadCredentialsException("Account is not enabled");
+        }
+
+        //STEP 8: Revoke the old refresh token
+        //This prevents the same token from being reused after rotation
+        storedToken.setRevokedAt(Instant.now());
+
+
+
+        return createAuthResponse(user, "Session refreshed", "Authentication refreshed successfully");
+
+    }
+
+    @Override
+    public void logout(String refreshToken) {
+       // flow of the code
+//        1. Client requests logout
+//        Sends the refresh token to the backend.
+//
+//        2. Validate the input
+//        Reject a missing or blank token.
+//
+//        3. Hash and find the token
+//        Look up the hash in the database.
+//
+//        4. Revoke the token
+//        Set revokedAt if the record exists and is active.
+//
+//        5. Commit the transaction
+//        The refresh token can no longer be used to renew the session.
+
+
+        //STEP 1: check whether the client sent a refresh token.
+        // A null or blank token can identify a session to revoke.
+        if(refreshToken == null || refreshToken.isBlank()){
+            throw new BadCredentialsException("Refresh toke is required.");
+        }
+
+        // STEP 2: Hash the refresh token.
+        // We store the token's SHA-256 hash in the database rather
+        // than storing the original token in plain text.
+        String tokenHash = TokenHashUtil.sha256(refreshToken);
+
+
+        // STEP 3: Search the database for this refresh token.
+        // findByTokenHash() returns an Optional because the record
+        // might not exist.
+        refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(storedToken ->{
+
+            //check whether the token has already been revoked
+            if(!storedToken.isRevoked()){
+                storedToken.setRevokedAt(Instant.now());
+            }
+        });
+
+
+
     }
 }
