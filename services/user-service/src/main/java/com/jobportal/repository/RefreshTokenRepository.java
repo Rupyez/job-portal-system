@@ -7,10 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    // Used after a password reset to invalidate sessions across all devices.
+    List<RefreshToken> findAllByUser_IdAndRevokedAtIsNull(Long userId);
 
     // Serializes concurrent refresh attempts for the same token. The lock is
     // held until the surrounding service transaction completes.
