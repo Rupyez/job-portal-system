@@ -3,6 +3,7 @@ package com.jobportal.controller;
 import com.jobportal.exception.GlobalExceptionHandler;
 import com.jobportal.payload.AuthResponse;
 import com.jobportal.service.AuthService;
+import com.jobportal.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -32,6 +33,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @Test
     void loginShouldReturnOkAndAuthenticationResponse() throws Exception {
