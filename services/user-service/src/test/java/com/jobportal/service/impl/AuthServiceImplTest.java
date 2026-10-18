@@ -10,6 +10,7 @@ import com.jobportal.repository.RefreshTokenRepository;
 import com.jobportal.repository.UserRepository;
 import com.jobportal.security.JwtProvider;
 import com.jobportal.security.TokenHashUtil;
+import com.jobportal.security.TokenHashUtil;
 import domain.UserRole;
 import domain.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -251,6 +253,62 @@ class AuthServiceImplTest {
         );
 
         verifyNoInteractions(refreshTokenRepository);
+    }
+
+    @Test
+    void logoutShouldRevokeAnActiveRefreshToken() {
+        String rawRefreshToken = "refresh-token-to-logout";
+        String tokenHash = TokenHashUtil.sha256(rawRefreshToken);
+
+        RefreshToken storedToken = new RefreshToken();
+        storedToken.setId(77L);
+        storedToken.setUser(activeUser);
+        storedToken.setTokenHash(tokenHash);
+        storedToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        when(refreshTokenRepository.findByTokenHashForUpdate(tokenHash))
+                .thenReturn(Optional.of(storedToken));
+
+        authService.logout(rawRefreshToken);
+
+        assertNotNull(storedToken.getRevokedAt());
+        verify(refreshTokenRepository).findByTokenHashForUpdate(tokenHash);
+    }
+
+    @Test
+    void logoutShouldLeaveAnAlreadyRevokedRefreshTokenUnchanged() {
+        String rawRefreshToken = "already-revoked-token";
+        String tokenHash = TokenHashUtil.sha256(rawRefreshToken);
+        Instant originalRevokedAt = Instant.now().minusSeconds(60);
+
+        RefreshToken storedToken = new RefreshToken();
+        storedToken.setId(78L);
+        storedToken.setUser(activeUser);
+        storedToken.setTokenHash(tokenHash);
+        storedToken.setExpiresAt(Instant.now().plusSeconds(3600));
+        storedToken.setRevokedAt(originalRevokedAt);
+
+        when(refreshTokenRepository.findByTokenHashForUpdate(tokenHash))
+                .thenReturn(Optional.of(storedToken));
+
+        authService.logout(rawRefreshToken);
+
+        assertEquals(originalRevokedAt, storedToken.getRevokedAt());
+        verify(refreshTokenRepository).findByTokenHashForUpdate(tokenHash);
+    }
+
+    @Test
+    void logoutShouldNotFailWhenRefreshTokenIsNotFound() {
+        String rawRefreshToken = "unknown-refresh-token";
+        String tokenHash = TokenHashUtil.sha256(rawRefreshToken);
+
+        when(refreshTokenRepository.findByTokenHashForUpdate(tokenHash))
+                .thenReturn(Optional.empty());
+
+        // Logout is intentionally idempotent: an unknown token has nothing to revoke.
+        assertDoesNotThrow(() -> authService.logout(rawRefreshToken));
+
+        verify(refreshTokenRepository).findByTokenHashForUpdate(tokenHash);
     }
 
     @Test
