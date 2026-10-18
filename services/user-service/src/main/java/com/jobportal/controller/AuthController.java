@@ -33,7 +33,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/refrsh")
+    @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
             @Valid @RequestBody RefreshTokenRequest request){
         //pass the refresh token to the service layer
@@ -57,7 +57,7 @@ public class AuthController {
         //Ask the service to revoke the supplied refresh token
         authService.logout(request.getRefreshToken());
 
-        return ResponseEntity. noContent().build();
+        return ResponseEntity.noContent().build();
     }
 
 }
