@@ -4,6 +4,7 @@ import com.jobportal.exception.EmailAlreadyExistsException;
 import com.jobportal.modal.RefreshToken;
 import com.jobportal.modal.User;
 import com.jobportal.payload.AuthResponse;
+import com.jobportal.payload.ChangePasswordRequest;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.SignupRequest;
 import com.jobportal.repository.RefreshTokenRepository;
@@ -324,4 +325,48 @@ class AuthServiceImplTest {
         request.setPassword(password);
         return request;
     }
+
+    @Test
+    void changePasswordShouldEncodeNewPasswordAndRevokeExistingSessions() {
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setCurrentPassword("current-password");
+        request.setNewPassword("new-strong-password");
+
+        RefreshToken activeRefreshToken = new RefreshToken();
+        activeRefreshToken.setUser(activeUser);
+        activeRefreshToken.setTokenHash("a".repeat(64));
+        activeRefreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        when(userRepository.findByEmail("rupesh@example.com")).thenReturn(Optional.of(activeUser));
+        when(passwordEncoder.matches("current-password", "bcrypt-hash")).thenReturn(true);
+        when(passwordEncoder.matches("new-strong-password", "bcrypt-hash")).thenReturn(false);
+        when(passwordEncoder.encode("new-strong-password")).thenReturn("new-bcrypt-hash");
+        when(refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(100L))
+                .thenReturn(List.of(activeRefreshToken));
+
+        authService.changePassword("RUPESH@EXAMPLE.COM", request);
+
+        assertEquals("new-bcrypt-hash", activeUser.getPassword());
+        assertNotNull(activeRefreshToken.getRevokedAt());
+        verify(userRepository).save(activeUser);
+        verify(refreshTokenRepository).saveAll(List.of(activeRefreshToken));
+    }
+
+    @Test
+    void changePasswordShouldRejectIncorrectCurrentPassword() {
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setCurrentPassword("wrong-current-password");
+        request.setNewPassword("new-strong-password");
+
+        when(userRepository.findByEmail("rupesh@example.com")).thenReturn(Optional.of(activeUser));
+        when(passwordEncoder.matches("wrong-current-password", "bcrypt-hash")).thenReturn(false);
+
+        assertThrows(BadCredentialsException.class,
+                () -> authService.changePassword("rupesh@example.com", request));
+
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userRepository, never()).save(any(User.class));
+        verifyNoInteractions(refreshTokenRepository);
+    }
+
 }
