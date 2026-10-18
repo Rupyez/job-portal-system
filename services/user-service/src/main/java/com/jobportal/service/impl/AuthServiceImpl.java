@@ -5,6 +5,7 @@ import com.jobportal.mapper.UserMapper;
 import com.jobportal.modal.RefreshToken;
 import com.jobportal.modal.User;
 import com.jobportal.payload.AuthResponse;
+import com.jobportal.payload.ChangePasswordRequest;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.SignupRequest;
 import com.jobportal.repository.RefreshTokenRepository;
@@ -218,6 +219,40 @@ public class AuthServiceImpl implements AuthService {
 
         return createAuthResponse(user, "Session refreshed", "Authentication refreshed successfully");
 
+    }
+
+
+    @Override
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+        String normalizedEmail = normalizeEmail(email);
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials."));
+
+        if (!isAccountActive(user)) {
+            throw new BadCredentialsException("Invalid credentials.");
+        }
+
+        // Verify the current password before allowing a credential change.
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Invalid credentials.");
+        }
+
+        // Avoid a pointless password change to the same password.
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("The new password must differ from the current password.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // A password change invalidates refresh sessions on every device.
+        List<RefreshToken> activeTokens =
+                refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(user.getId());
+        Instant revokedAt = Instant.now();
+        activeTokens.forEach(token -> token.setRevokedAt(revokedAt));
+        refreshTokenRepository.saveAll(activeTokens);
     }
 
     @Override
