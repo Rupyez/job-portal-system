@@ -1,7 +1,9 @@
 package com.jobportal.service.impl;
 
 import com.jobportal.exception.EmailAlreadyExistsException;
+import com.jobportal.modal.RefreshToken;
 import com.jobportal.modal.User;
+import com.jobportal.payload.AuthResponse;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.SignupRequest;
 import com.jobportal.repository.RefreshTokenRepository;
@@ -18,6 +20,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,6 +80,60 @@ class AuthServiceImplTest {
         verify(userRepository).existsByEmail("rupesh@example.com");
         verify(userRepository, never()).saveAndFlush(any(User.class));
         verifyNoInteractions(jwtProvider, refreshTokenRepository);
+    }
+
+    @Test
+    void loginShouldReturnTokensWhenCredentialsAreValid() {
+        LoginRequest request = loginRequest("  RUPESH@EXAMPLE.COM  ", "correct-password");
+
+        Instant now = Instant.now();
+        JwtProvider.IssuedToken accessToken = new JwtProvider.IssuedToken(
+                "mock-access-token",
+                JwtProvider.TokenType.ACCESS,
+                now,
+                now.plusSeconds(900)
+        );
+        JwtProvider.IssuedToken refreshToken = new JwtProvider.IssuedToken(
+                "mock-refresh-token",
+                JwtProvider.TokenType.REFRESH,
+                now,
+                now.plusSeconds(604800)
+        );
+
+        when(userRepository.findByEmail("rupesh@example.com"))
+                .thenReturn(Optional.of(activeUser));
+        when(passwordEncoder.matches("correct-password", "bcrypt-hash"))
+                .thenReturn(true);
+        when(userRepository.saveAndFlush(activeUser)).thenReturn(activeUser);
+        when(jwtProvider.generateAccessToken(
+                "rupesh@example.com",
+                "100",
+                List.of("ROLE_JOB_SEEKER")
+        )).thenReturn(accessToken);
+        when(jwtProvider.generateRefreshToken("rupesh@example.com", "100"))
+                .thenReturn(refreshToken);
+        when(refreshTokenRepository.save(any(RefreshToken.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthResponse response = authService.login(request);
+
+        // The service normalizes the email, verifies the password, and returns both tokens.
+        org.junit.jupiter.api.Assertions.assertEquals("mock-access-token", response.getJwt());
+        org.junit.jupiter.api.Assertions.assertEquals("mock-refresh-token", response.getRefreshToken());
+        org.junit.jupiter.api.Assertions.assertEquals("Welcome back Rupesh", response.getTitle());
+        org.junit.jupiter.api.Assertions.assertEquals("Login successful.", response.getMessage());
+        org.junit.jupiter.api.Assertions.assertEquals("rupesh@example.com", response.getUser().getEmail());
+
+        verify(userRepository).findByEmail("rupesh@example.com");
+        verify(passwordEncoder).matches("correct-password", "bcrypt-hash");
+        verify(userRepository).saveAndFlush(activeUser);
+        verify(jwtProvider).generateAccessToken(
+                "rupesh@example.com",
+                "100",
+                List.of("ROLE_JOB_SEEKER")
+        );
+        verify(jwtProvider).generateRefreshToken("rupesh@example.com", "100");
+        verify(refreshTokenRepository).save(any(RefreshToken.class));
     }
 
     @Test
