@@ -1,6 +1,7 @@
 package com.jobportal.security;
 
 import com.jobportal.modal.User;
+import domain.UserStatus;
 import com.jobportal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -39,6 +40,10 @@ public class CustomUserDetailService implements UserDetailsService {
                 .authorities(List.of(
                         new SimpleGrantedAuthority(authority)
                 ))
+                // Prevent disabled, suspended, or deleted accounts from
+                // authenticating with an otherwise valid access token.
+                .disabled(!Boolean.TRUE.equals(user.getEnabled())
+                        || user.getUserStatus() != UserStatus.ACTIVE)
                 .build();
     }
 }
