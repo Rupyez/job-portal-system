@@ -9,6 +9,7 @@ import com.jobportal.payload.SignupRequest;
 import com.jobportal.repository.RefreshTokenRepository;
 import com.jobportal.repository.UserRepository;
 import com.jobportal.security.JwtProvider;
+import com.jobportal.security.TokenHashUtil;
 import domain.UserRole;
 import domain.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +25,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -171,6 +174,70 @@ class AuthServiceImplTest {
 
         verify(userRepository, never()).saveAndFlush(any(User.class));
         verifyNoInteractions(jwtProvider, refreshTokenRepository);
+    }
+
+    @Test
+    void refreshShouldRevokeOldTokenAndIssueANewTokenSet() {
+        String oldRawRefreshToken = "old-refresh-token";
+        String oldTokenHash = TokenHashUtil.sha256(oldRawRefreshToken);
+
+        RefreshToken storedToken = new RefreshToken();
+        storedToken.setId(55L);
+        storedToken.setUser(activeUser);
+        storedToken.setTokenHash(oldTokenHash);
+        storedToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        Instant now = Instant.now();
+        JwtProvider.IssuedToken newAccessToken = new JwtProvider.IssuedToken(
+                "new-access-token",
+                JwtProvider.TokenType.ACCESS,
+                now,
+                now.plusSeconds(900)
+        );
+        JwtProvider.IssuedToken newRefreshToken = new JwtProvider.IssuedToken(
+                "new-refresh-token",
+                JwtProvider.TokenType.REFRESH,
+                now,
+                now.plusSeconds(604800)
+        );
+
+        when(jwtProvider.isTokenValid(oldRawRefreshToken, JwtProvider.TokenType.REFRESH))
+                .thenReturn(true);
+        when(jwtProvider.extractUserId(oldRawRefreshToken)).thenReturn("100");
+        when(jwtProvider.extractSubject(oldRawRefreshToken)).thenReturn("rupesh@example.com");
+        when(refreshTokenRepository.findByTokenHashForUpdate(oldTokenHash))
+                .thenReturn(Optional.of(storedToken));
+        when(jwtProvider.generateAccessToken(
+                "rupesh@example.com",
+                "100",
+                List.of("ROLE_JOB_SEEKER")
+        )).thenReturn(newAccessToken);
+        when(jwtProvider.generateRefreshToken("rupesh@example.com", "100"))
+                .thenReturn(newRefreshToken);
+        when(refreshTokenRepository.save(any(RefreshToken.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthResponse response = authService.refresh(oldRawRefreshToken);
+
+        // Rotation must revoke the old refresh token and return a fresh token pair.
+        assertNotNull(storedToken.getRevokedAt());
+        assertEquals("new-access-token", response.getJwt());
+        assertEquals("new-refresh-token", response.getRefreshToken());
+        assertEquals("Session refreshed", response.getTitle());
+        assertEquals("Authentication refreshed successfully", response.getMessage());
+
+        verify(refreshTokenRepository).findByTokenHashForUpdate(oldTokenHash);
+        verify(jwtProvider).generateAccessToken(
+                "rupesh@example.com",
+                "100",
+                List.of("ROLE_JOB_SEEKER")
+        );
+        verify(jwtProvider).generateRefreshToken("rupesh@example.com", "100");
+        verify(refreshTokenRepository).save(argThat(token ->
+                token.getUser().equals(activeUser)
+                        && token.getTokenHash().equals(TokenHashUtil.sha256("new-refresh-token"))
+                        && token.getExpiresAt().equals(newRefreshToken.expiresAt())
+        ));
     }
 
     @Test
