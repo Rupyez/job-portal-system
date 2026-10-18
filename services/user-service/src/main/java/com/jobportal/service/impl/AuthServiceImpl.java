@@ -45,7 +45,7 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(req.getEmail());
 
         // Check whether the email is already registered
-        if (userRepository.existsByEmail(req.getEmail())) {
+        if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException(
                     "An account with this email already exists: " + req.getEmail()
             );
@@ -81,36 +81,32 @@ public class AuthServiceImpl implements AuthService {
 
     }
 
-    private AuthResponse createAuthResponse(User user, String title, String message){
+    private AuthResponse createAuthResponse(User user, String title, String message) {
         String role = user.getRole().name();
         String userId = user.getId().toString();
 
-        //generate a short-lived access token
+        // Create one access token for API requests.
         JwtProvider.IssuedToken accessToken = jwtProvider.generateAccessToken(
                 user.getEmail(),
-                user.getId().toString(),
-                List.of(role));
-
-        JwtProvider.IssuedToken issuedRefreshToken = jwtProvider.generateRefreshToken(
-                user.getEmail(),
-                user.getId().toString()
+                userId,
+                List.of(role)
         );
 
-
-        //Generate a refresh token for obtaining new access token
+        // Create exactly one refresh token. This same token must be returned
+        // to the client and hashed for storage, otherwise refresh lookup fails.
         JwtProvider.IssuedToken refreshToken = jwtProvider.generateRefreshToken(
                 user.getEmail(),
                 userId
         );
 
-        //Store only the hash of the refresh token in the database.
+        // Store only the SHA-256 hash, never the raw refresh token.
         RefreshToken refreshTokenEntity = new RefreshToken();
         refreshTokenEntity.setUser(user);
-        refreshTokenEntity.setTokenHash(TokenHashUtil.sha256(issuedRefreshToken.value()));
+        refreshTokenEntity.setTokenHash(TokenHashUtil.sha256(refreshToken.value()));
         refreshTokenEntity.setExpiresAt(refreshToken.expiresAt());
+        refreshTokenRepository.save(refreshTokenEntity);
 
-
-        //Return the raw tokens to the client, not to the database;
+        // Return the raw tokens to the client.
         AuthResponse response = new AuthResponse();
         response.setJwt(accessToken.value());
         response.setRefreshToken(refreshToken.value());
@@ -161,6 +157,7 @@ public class AuthServiceImpl implements AuthService {
 
 
     @Override
+    @Transactional
     public AuthResponse refresh(String refreshToken) {
 
         // STEP 1: Validate the refresh token.
@@ -216,6 +213,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void logout(String refreshToken) {
        // flow of the code
 //        1. Client requests logout
