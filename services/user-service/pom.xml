@@ -94,13 +94,6 @@
 
 
 
-        <!-- Enables OAuth2 / OpenID Connect login with providers
-             such as Google through Spring Security. -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-client</artifactId>
-        </dependency>
-
 
     </dependencies>
 
