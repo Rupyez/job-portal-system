@@ -146,4 +146,42 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
+
+    @Test
+    void forgotPasswordShouldReturnGenericMessage() throws Exception {
+        when(passwordResetService.requestPasswordReset(any()))
+                .thenReturn("If an account exists for that email, password reset instructions will be sent.");
+
+        mockMvc.perform(post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "rupesh@example.com"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value(
+                        "If an account exists for that email, password reset instructions will be sent."));
+
+        verify(passwordResetService).requestPasswordReset(any());
+    }
+
+    @Test
+    void resetPasswordShouldReturnOkAfterSuccessfulReset() throws Exception {
+        doNothing().when(passwordResetService).resetPassword(any());
+
+        mockMvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "token": "one-time-reset-token",
+                                  "newPassword": "new-strong-password"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value(
+                        "Password has been reset. Please log in with your new password."));
+
+        verify(passwordResetService).resetPassword(any());
+    }
 }
