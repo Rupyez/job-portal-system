@@ -42,8 +42,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authorizationHeader.substring(7);
         try{
             //only access tokens should authenticate API request
-            if(!jwtProvider.isTokenValid(token, JwtProvider.TokenType.ACCESS)){
+            if (!jwtProvider.isTokenValid(token, JwtProvider.TokenType.ACCESS)) {
+                // An invalid token must not authenticate the request.
+                // Continue the filter chain exactly once, then stop processing here.
+                SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
+                return;
             }
 
 
