@@ -1,4 +1,3 @@
-
 package com.jobportal.config;
 
 import com.jobportal.security.JwtAuthenticationFilter;
@@ -30,29 +29,23 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
-
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
-
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/auth/signup",
                                 "/auth/login",
                                 "/auth/refresh",
-                                "/auth/logout"
+                                "/auth/logout",
+                                "/auth/forgot-password",
+                                "/auth/reset-password"
                         ).permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-                        .anyRequest().authenticated()
-                )
-
+                        .anyRequest().authenticated())
                 .addFilterBefore(
                         jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
