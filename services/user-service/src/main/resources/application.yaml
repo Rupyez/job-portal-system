@@ -22,9 +22,29 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
 
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:no-reply@example.com}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:false}
+        transport:
+          protocol: smtp
+
 jwt:
-    secret: ${JWT_SECRET}
-    issuer: job-portal-system
-    access-token-ttl: 15m
-    refresh-token-ttl: 7d
-    clock-skew: 30s
+  secret: ${JWT_SECRET}
+  issuer: job-portal-system
+  access-token-ttl: 15m
+  refresh-token-ttl: 7d
+  clock-skew: 30s
+
+app:
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:3000}
+  security:
+    password-reset-token-ttl: 15m
