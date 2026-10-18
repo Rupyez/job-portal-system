@@ -247,7 +247,7 @@ public class AuthServiceImpl implements AuthService {
         // STEP 3: Search the database for this refresh token.
         // findByTokenHash() returns an Optional because the record
         // might not exist.
-        refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(storedToken ->{
+        refreshTokenRepository.findByTokenHashForUpdate(tokenHash).ifPresent(storedToken ->{
 
             //check whether the token has already been revoked
             if(!storedToken.isRevoked()){
