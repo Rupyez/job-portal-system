@@ -61,16 +61,24 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
 
+        final User savedUser;
         try {
-            User savedUser = userRepository.saveAndFlush(user);
-
-            return createAuthResponse(savedUser, "Welcome " + savedUser.getFirstName(), "Registration successful");
-
+            savedUser = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
+            // The database unique constraint protects against two concurrent
+            // signup requests using the same normalized email.
             throw new EmailAlreadyExistsException(
                     "An account with this email already exists."
             );
         }
+
+        // Keep token persistence outside the duplicate-email catch block so
+        // token-table failures are not incorrectly reported as email conflicts.
+        return createAuthResponse(
+                savedUser,
+                "Welcome " + savedUser.getFirstName(),
+                "Registration successful"
+        );
 
     }
 
