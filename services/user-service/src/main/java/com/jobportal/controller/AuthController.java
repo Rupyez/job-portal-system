@@ -1,6 +1,7 @@
 package com.jobportal.controller;
 
 import com.jobportal.payload.AuthResponse;
+import com.jobportal.payload.ChangePasswordRequest;
 import com.jobportal.payload.ForgotPasswordRequest;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.RefreshTokenRequest;
@@ -11,6 +12,7 @@ import com.jobportal.service.PasswordResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -67,4 +69,18 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message",
                 "Password has been reset. Please log in with your new password."));
     }
+
+    /**
+     * Changes the password for the currently authenticated user.
+     * Existing refresh-token sessions are revoked after the change.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(authentication.getName(), request);
+        return ResponseEntity.ok(Map.of("message",
+                "Password changed. Please log in again on your devices."));
+    }
+
 }
