@@ -13,6 +13,7 @@ import com.jobportal.security.JwtProvider;
 import com.jobportal.security.TokenHashUtil;
 import com.jobportal.service.AuthService;
 import domain.UserRole;
+import domain.UserStatus;
 import dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,7 +27,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -50,13 +50,6 @@ public class AuthServiceImpl implements AuthService {
                     "An account with this email already exists: " + req.getEmail()
             );
         }
-
-        // Prevent users from assigning themselves privileged roles
-//        if (req.getRole() == UserRole.ADMIN) {
-//            throw new IllegalArgumentException(
-//                    "Cannot self-register with the ADMIN role."
-//            );
-//        }
 
         User user = User.builder()
                 .firstName(req.getFirstName().trim())
@@ -119,8 +112,13 @@ public class AuthServiceImpl implements AuthService {
         return response;
     }
 
-    private String normalizeEmail(String email){
+    private String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean isAccountActive(User user) {
+        return Boolean.TRUE.equals(user.getEnabled())
+                && user.getUserStatus() == UserStatus.ACTIVE;
     }
 
     @Override
@@ -139,9 +137,9 @@ public class AuthServiceImpl implements AuthService {
 
         }
 
-        if(!Boolean.TRUE.equals(user.getEnabled())){
+        if (!isAccountActive(user)) {
             throw new BadCredentialsException(
-                    "This account is not enabled."
+                    "This account is disabled or inactive."
             );
         }
 
@@ -174,9 +172,11 @@ public class AuthServiceImpl implements AuthService {
 
         //STEP 3: Find the matching token record in the database.
         //If no record exists, the token was never stored or is not recognized.
-        RefreshToken storedToken = (refreshTokenRepository
-                .findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token")));
+        // Lock this row until the transaction finishes. If two requests try
+        // to rotate the same token, the second request sees it as revoked.
+        RefreshToken storedToken = refreshTokenRepository
+                .findByTokenHashForUpdate(tokenHash)
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
 
 
         //STEP 4: Check whether the stored token is expired or revoked
@@ -198,8 +198,8 @@ public class AuthServiceImpl implements AuthService {
 
 
         //STEP 7: Do not issue tokens to a disabled account
-        if(!Boolean.TRUE.equals(user.getEnabled())){
-            throw new BadCredentialsException("Account is not enabled");
+        if (!isAccountActive(user)) {
+            throw new BadCredentialsException("Account is disabled or inactive");
         }
 
         //STEP 8: Revoke the old refresh token
@@ -235,7 +235,7 @@ public class AuthServiceImpl implements AuthService {
         //STEP 1: check whether the client sent a refresh token.
         // A null or blank token can identify a session to revoke.
         if(refreshToken == null || refreshToken.isBlank()){
-            throw new BadCredentialsException("Refresh toke is required.");
+            throw new BadCredentialsException("Refresh token is required.");
         }
 
         // STEP 2: Hash the refresh token.
