@@ -1,14 +1,10 @@
 package com.jobportal.controller;
 
-import com.jobportal.payload.AuthResponse;
-import com.jobportal.payload.ChangePasswordRequest;
-import com.jobportal.payload.ForgotPasswordRequest;
-import com.jobportal.payload.LoginRequest;
-import com.jobportal.payload.RefreshTokenRequest;
-import com.jobportal.payload.ResetPasswordRequest;
-import com.jobportal.payload.SignupRequest;
+import com.jobportal.payload.*;
 import com.jobportal.service.AuthService;
 import com.jobportal.service.PasswordResetService;
+import com.jobportal.service.UserManagementService;
+import dto.response.UserResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +20,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final UserManagementService userManagementService;
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@RequestBody @Valid SignupRequest request) {
@@ -83,4 +80,27 @@ public class AuthController {
                 "Password changed. Please log in again on your devices."));
     }
 
+
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getMyProfile(Authentication authentication){
+        UserResponse response = userManagementService.getMyProfile(authentication.getName());
+        return ResponseEntity.ok(response);
+    }
+
+    // PUT: Update the currently logged-in user's profile.
+    @PutMapping("/me")
+    public ResponseEntity<UserResponse> updateMyProfile(Authentication authentication, @Valid @RequestBody UpdateProfileRequest request){
+        UserResponse response = userManagementService.updateMyProfile(authentication.getName(), request);
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    // DELETE: Soft-delete the currently logged-in user's profile.
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMyProfile(Authentication authentication){
+        userManagementService.deleteMyProfile(authentication.getName());
+
+        return ResponseEntity.noContent().build();
+    }
 }

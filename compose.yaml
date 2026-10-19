@@ -1,0 +1,13 @@
+
+services:
+  user-service:
+    image: job-portal-user-service:local
+    container_name: job-portal-user-service
+    ports:
+      - "5001:5001"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/job_portal_user_db
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your .env file}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file}
+    restart: unless-stopped

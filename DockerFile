@@ -1,0 +1,32 @@
+
+# Stage 1: Build the Spring Boot application
+FROM maven:3.9-eclipse-temurin-21 AS build
+
+WORKDIR /workspace
+
+# Copy the complete multi-module Maven project
+COPY . .
+
+# Build user-service and its required Maven modules
+RUN mvn -B -pl services/user-service -am clean package -DskipTests
+
+# Select the executable JAR
+RUN set -eux; \
+    JAR="$(find services/user-service/target -maxdepth 1 -type f -name '*.jar' ! -name 'original-*' ! -name '*-plain.jar' | head -n 1)"; \
+    test -n "$JAR"; \
+    cp "$JAR" /workspace/app.jar
+
+# Stage 2: Run the application
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+# Copy only the built application into the runtime image
+COPY --from=build /workspace/app.jar app.jar
+
+# Run as a non-root user
+USER 10001
+
+EXPOSE 5001
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
