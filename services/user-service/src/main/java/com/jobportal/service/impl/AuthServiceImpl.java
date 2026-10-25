@@ -269,7 +269,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Verify the current password before allowing a credential change.
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+        if (user.getPassword() == null || !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new BadCredentialsException("Invalid credentials.");
         }
 
