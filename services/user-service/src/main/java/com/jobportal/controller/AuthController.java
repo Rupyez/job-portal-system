@@ -32,6 +32,12 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<AuthResponse> exchangeOAuth2Code(
+            @Valid @RequestBody OAuth2ExchangeRequest request) {
+        return ResponseEntity.ok(authService.exchangeOAuth2Code(request.getCode()));
+    }
+
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.refresh(request.getRefreshToken()));
