@@ -3,14 +3,17 @@ package com.jobportal.service.impl;
 import com.jobportal.exception.EmailAlreadyExistsException;
 import com.jobportal.mapper.UserMapper;
 import com.jobportal.modal.RefreshToken;
+import com.jobportal.modal.OAuth2AuthorizationCode;
 import com.jobportal.modal.User;
 import com.jobportal.payload.AuthResponse;
 import com.jobportal.payload.ChangePasswordRequest;
 import com.jobportal.payload.LoginRequest;
 import com.jobportal.payload.SignupRequest;
 import com.jobportal.repository.RefreshTokenRepository;
+import com.jobportal.repository.OAuth2AuthorizationCodeRepository;
 import com.jobportal.repository.UserRepository;
 import com.jobportal.security.JwtProvider;
+import com.jobportal.security.OneTimeCodeUtil;
 import com.jobportal.security.TokenHashUtil;
 import com.jobportal.service.AuthService;
 import domain.UserRole;
@@ -37,6 +40,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final OAuth2AuthorizationCodeRepository oauth2AuthorizationCodeRepository;
 
     @Override
     @Transactional
@@ -141,7 +145,7 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         //Use the same Bcrypt encoder that was used during registration
-        if(!passwordEncoder.matches(req.getPassword(), user.getPassword())){
+        if (user.getPassword() == null || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new BadCredentialsException("Invalid email or password");
 
         }
@@ -162,6 +166,36 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+
+    @Override
+    @Transactional
+    public AuthResponse exchangeOAuth2Code(String code) {
+        if (code == null || code.isBlank()) {
+            throw new BadCredentialsException("Invalid OAuth2 authorization code.");
+        }
+
+        String codeHash = OneTimeCodeUtil.sha256(code);
+        OAuth2AuthorizationCode storedCode = oauth2AuthorizationCodeRepository
+                .findByCodeHashForUpdate(codeHash)
+                .orElseThrow(() -> new BadCredentialsException("Invalid OAuth2 authorization code."));
+
+        if (storedCode.isConsumed() || storedCode.isExpired()) {
+            throw new BadCredentialsException("Invalid OAuth2 authorization code.");
+        }
+
+        User user = storedCode.getUser();
+        if (!isAccountActive(user)) {
+            throw new BadCredentialsException("Account is disabled or inactive.");
+        }
+
+        // Consume before issuing tokens; the transaction and row lock prevent code replay.
+        storedCode.setConsumedAt(Instant.now());
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        return createAuthResponse(user, "Welcome back " + user.getFirstName(),
+                "OAuth2 login successful.");
+    }
 
     @Override
     @Transactional
