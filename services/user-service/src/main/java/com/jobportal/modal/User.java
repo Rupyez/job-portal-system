@@ -32,8 +32,14 @@ public class User {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
+
+    @Column(name = "oauth_provider", length = 30)
+    private String oauthProvider;
+
+    @Column(name = "oauth_subject", unique = true, length = 255)
+    private String oauthSubject;
 
     @Column(length = 20)
     private String phoneNumber;
