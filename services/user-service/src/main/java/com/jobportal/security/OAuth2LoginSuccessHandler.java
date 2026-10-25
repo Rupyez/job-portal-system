@@ -58,6 +58,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 .encode()
                 .toUriString();
 
+        response.setHeader("Referrer-Policy", "no-referrer");
+        response.setHeader("Cache-Control", "no-store");
         response.sendRedirect(redirectUrl);
     }
 }
