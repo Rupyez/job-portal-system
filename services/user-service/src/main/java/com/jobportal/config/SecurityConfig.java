@@ -22,7 +22,7 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    @Value("${app.frontend-base-url:http://localhost:3000}")
+    @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
 
     @Bean
@@ -69,12 +69,14 @@ public class SecurityConfig {
                                 "/auth/refresh",
                                 "/auth/logout",
                                 "/auth/forgot-password",
-                                "/auth/reset-password"
+                                "/auth/reset-password",
+                                "/health","/actuator/health"
                         ).permitAll()
                         .requestMatchers(
                                 "/oauth2/**",
                                 "/login/oauth2/**",
-                                "/actuator/health"
+                                "/actuator/health",
+                                "/health"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

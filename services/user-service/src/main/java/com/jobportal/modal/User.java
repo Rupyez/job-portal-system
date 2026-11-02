@@ -32,7 +32,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = true)
+    @Column
     private String password;
 
     @Column(name = "oauth_provider", length = 30)
