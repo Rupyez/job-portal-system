@@ -1,66 +1,70 @@
 
-server:
-  port: 5001
+  server:
+    port: 5001
 
-spring:
-  application:
-    name: job-portal-user-service
+  spring:
+    config:
+      import: optional:file:./.env[.properties]
 
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope:
-              - profile
-              - email
-            redirect-uri: "${GOOGLE_REDIRECT_URI:http://localhost:5001/login/oauth2/code/google}"
+    application:
+      name: job-portal-user-service
 
-  datasource:
-    url: jdbc:mysql://localhost:3306/job_portal_user_db
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    security:
+      oauth2:
+        client:
+          registration:
+            google:
+              client-id: ${GOOGLE_CLIENT_ID}
+              client-secret: ${GOOGLE_CLIENT_SECRET}
+              scope:
+                - profile
+                - email
+              redirect-uri: "${GOOGLE_REDIRECT_URI:http://localhost:5001/login/oauth2/code/google}"
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    open-in-view: false
-    properties:
+    datasource:
+      url: jdbc:mysql://localhost:3306/job_portal_user_db
+      username: ${DB_USERNAME:root}
+      password: ${DB_PASSWORD}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+    jpa:
       hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+        ddl-auto: update
+      show-sql: false
+      open-in-view: false
+      properties:
+        hibernate:
+          format_sql: true
+          dialect: org.hibernate.dialect.MySQLDialect
 
-  mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
-    username: ${MAIL_USERNAME:no-reply@example.com}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: ${MAIL_SMTP_AUTH:false}
-          starttls:
-            enable: ${MAIL_SMTP_STARTTLS:false}
-            required: ${MAIL_SMTP_STARTTLS_REQUIRED:false}
-        transport:
-          protocol: smtp
-
-jwt:
-  secret: ${JWT_SECRET}
-  issuer: job-portal-system
-  access-token-ttl: 15m
-  refresh-token-ttl: 7d
-  clock-skew: 30s
-
-app:
-  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
-  security:
-    password-reset-token-ttl: 15m
-management:
-  health:
     mail:
-      enabled: false
+      host: ${MAIL_HOST:localhost}
+      port: ${MAIL_PORT:1025}
+      username: ${MAIL_USERNAME:no-reply@example.com}
+      password: ${MAIL_PASSWORD:}
+      properties:
+        mail:
+          smtp:
+            auth: ${MAIL_SMTP_AUTH:false}
+            starttls:
+              enable: ${MAIL_SMTP_STARTTLS:false}
+              required: ${MAIL_SMTP_STARTTLS_REQUIRED:false}
+          transport:
+            protocol: smtp
+
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: job-portal-system
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+    clock-skew: 30s
+
+  app:
+    frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+    security:
+      password-reset-token-ttl: 15m
+
+  management:
+    health:
+      mail:
+        enabled: false

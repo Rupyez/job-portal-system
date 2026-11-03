@@ -14,7 +14,7 @@ target/
 *.log
 
 # Environment secrets
-.env
+services/user-service/.env
 .env.*
 !.env.example
 
