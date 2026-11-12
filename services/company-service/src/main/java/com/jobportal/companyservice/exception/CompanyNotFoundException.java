@@ -1,4 +1,8 @@
 package com.jobportal.companyservice.exception;
 
-public class CompanyNotFoundException {
+public class CompanyNotFoundException extends RuntimeException{
+
+    public CompanyNotFoundException(Long id){
+        super("Company not found with id: " + id);
+    }
 }

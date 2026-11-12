@@ -16,10 +16,15 @@
     <packaging>pom</packaging>
 
     <name>job-portal-services</name>
-    <description>Business services parent module</description>
+    <description>Job Portal Business Services</description>
 
     <modules>
         <module>user-service</module>
+        <module>company-service</module>
+        <module>job-service</module>
+        <module>job-preferences-services</module>
+        <module>resume-service</module>
+        <module>application-service</module>
     </modules>
 
 </project>

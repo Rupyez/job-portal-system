@@ -1,4 +1,8 @@
 package com.jobportal.jobservice.exception;
 
-public class InvalidJobStateException {
+public class InvalidJobStateException extends RuntimeException {
+
+    public InvalidJobStateException(String message) {
+        super(message);
+    }
 }

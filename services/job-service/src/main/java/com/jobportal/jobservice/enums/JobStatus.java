@@ -1,4 +1,10 @@
 package com.jobportal.jobservice.enums;
 
-public class JobStatus {
+public enum JobStatus {
+    DRAFT,
+    PUBLISHED,
+    CLOSED,
+    ARCHIVED,
+    PAUSED
+
 }
