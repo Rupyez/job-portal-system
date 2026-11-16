@@ -4,21 +4,23 @@ package com.jobportal.modal;
 import domain.UserRole;
 import domain.UserStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users",
+        uniqueConstraints = @UniqueConstraint(name = "uk_users_email", columnNames = "email"))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+
+
 public class User {
 
+    @EqualsAndHashCode.Include
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -51,7 +53,9 @@ public class User {
     @Column(nullable = false, length = 30)
     private UserStatus userStatus = UserStatus.ACTIVE;
 
-    @Column(length = 50)
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
     private UserRole role=UserRole.ROLE_JOB_SEEKER;
 
     @Builder.Default
@@ -78,6 +82,8 @@ public class User {
 
         if (enabled == null) {
             enabled = true;
+            if (userStatus == null) userStatus = UserStatus.ACTIVE;
+            if (role == null) role = UserRole.ROLE_JOB_SEEKER;
         }
 
 
@@ -86,5 +92,27 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+
+    // ---- Domain helpers (use these in the OAuth2 service) ----
+    public String displayName(){
+        String first = firstName == null ? "" : firstName;
+        String last  = lastName  == null ? "" : lastName;
+        return (first + " " + last).trim();
+    }
+
+
+    public void linkGoogle(String subject, String firstName, String lastName, String imageUrl){
+        this.oauthProvider = "google";
+        this.oauthSubject  = subject;
+        if (firstName != null && !firstName.isBlank()) this.firstName = firstName;
+        if (lastName  != null && !lastName.isBlank())  this.lastName  = lastName;
+        if (imageUrl  != null && !imageUrl.isBlank())  this.profileImage = imageUrl;
+    }
+
+
+    public void markLogin() {
+        this.lastLogin = LocalDateTime.now();
     }
 }

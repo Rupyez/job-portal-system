@@ -11,18 +11,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.UUID;
+
 
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class JobPreferenceServiceImpl implements JobPreferenceService {
 
     private final JobPreferenceRepository jobPreferenceRepository;
     @Override
-    public JobPreferenceResponse createJobPreference(UUID userId, JobPreferenceRequest request) {
+    public JobPreferenceResponse createJobPreference(Long userId, JobPreferenceRequest request) {
         validateUserId(userId);
         validateRequest(request);
         validateSalaryRange(request.getMinimumSalary(), request.getMaximumSalary());
@@ -54,7 +54,7 @@ public class JobPreferenceServiceImpl implements JobPreferenceService {
         return JobPreferenceResponse.builder()
                 .id(jobPreference.getId())
                 .userId(jobPreference.getUserId())
-                .jobTitles(jobPreference.getPreferredLocations())
+                .jobTitles(jobPreference.getPreferredJobTitles())
                 .locations(jobPreference.getPreferredLocations())
                 .skills(jobPreference.getPreferredSkills())
                 .industries(jobPreference.getPreferredIndustries())
@@ -69,7 +69,7 @@ public class JobPreferenceServiceImpl implements JobPreferenceService {
     }
 
     @Override
-    public JobPreferenceResponse getJobPreferenceByUserId(UUID userId) {
+    public JobPreferenceResponse getJobPreferenceByUserId(Long userId) {
         validateUserId(userId);
         JobPreference jobPreference = jobPreferenceRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Job Preferences not found."));
@@ -79,7 +79,7 @@ public class JobPreferenceServiceImpl implements JobPreferenceService {
 
 
     @Override
-    public JobPreferenceResponse updateJobPreference(UUID userId, JobPreferenceRequest request) {
+    public JobPreferenceResponse updateJobPreference(Long userId, JobPreferenceRequest request) {
         validateUserId(userId);
         validateRequest(request);
 
@@ -113,11 +113,14 @@ public class JobPreferenceServiceImpl implements JobPreferenceService {
     }
 
     @Override
-    public void deleteJobPreference(UUID userId) {
+    @Transactional
+    public void deleteJobPreference(Long userId) {
         validateUserId(userId);
 
         JobPreference jobPreference = jobPreferenceRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalStateException("Job Preference not found"));
+
+        jobPreferenceRepository.delete(jobPreference);
         log.info("Deleted job preferences for user");
     }
 
@@ -126,7 +129,7 @@ public class JobPreferenceServiceImpl implements JobPreferenceService {
      * Validates user ID.
      */
 
-    private void validateUserId(UUID userId){
+    private void validateUserId(Long userId){
         if(userId == null){
             throw new IllegalArgumentException("User ID cannot be null");
         }

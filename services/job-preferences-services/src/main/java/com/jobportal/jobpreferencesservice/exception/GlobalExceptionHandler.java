@@ -72,12 +72,21 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException exception
     ) {
 
-        return buildErrorResponse(
-                HttpStatus.BAD_REQUEST,
-                "Invalid value for parameter: "
-                        + exception.getName()
+        String expectedType = exception.getRequiredType() != null
+                ? exception.getRequiredType().getSimpleName()
+                : "Unknown";
+
+        String message = String.format(
+                "Invalid value for parameter '%s'. Received: '%s'. Expected type: %s",
+                exception.getName(),
+                exception.getValue(),
+                expectedType
         );
+
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
     }
+
+
 
 
     /**

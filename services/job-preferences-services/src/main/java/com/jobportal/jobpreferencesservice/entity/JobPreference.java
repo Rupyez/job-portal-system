@@ -37,7 +37,7 @@ public class JobPreference {
     private UUID id;
 
     @Column(name = "user_id", nullable = false, unique = true)
-    private UUID userId;
+    private Long userId;
 
 
     @Column(name = "created_at", nullable = false, updatable = false)

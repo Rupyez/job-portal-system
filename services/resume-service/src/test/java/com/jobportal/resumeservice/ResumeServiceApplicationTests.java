@@ -1,3 +1,4 @@
+
 package com.jobportal.resumeservice;
 
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,6 @@ class ResumeServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        // Verifies that the Spring application context starts successfully.
     }
-
 }

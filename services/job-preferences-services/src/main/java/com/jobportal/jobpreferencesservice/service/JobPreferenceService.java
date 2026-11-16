@@ -3,7 +3,7 @@ package com.jobportal.jobpreferencesservice.service;
 import com.jobportal.jobpreferencesservice.dto.request.JobPreferenceRequest;
 import com.jobportal.jobpreferencesservice.dto.response.JobPreferenceResponse;
 
-import java.util.UUID;
+
 
 public interface JobPreferenceService {
 
@@ -15,7 +15,7 @@ public interface JobPreferenceService {
      * @return created job preferences
      */
     JobPreferenceResponse createJobPreference(
-            UUID userId,
+            Long userId,
             JobPreferenceRequest request
     );
 
@@ -26,7 +26,7 @@ public interface JobPreferenceService {
      * @return user's job preferences
      */
     JobPreferenceResponse getJobPreferenceByUserId(
-            UUID userId
+            Long userId
     );
 
     /**
@@ -37,7 +37,7 @@ public interface JobPreferenceService {
      * @return updated job preferences
      */
     JobPreferenceResponse updateJobPreference(
-            UUID userId,
+            Long userId,
             JobPreferenceRequest request
     );
 
@@ -47,6 +47,6 @@ public interface JobPreferenceService {
      * @param userId user ID
      */
     void deleteJobPreference(
-            UUID userId
+            Long userId
     );
 }
